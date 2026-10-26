@@ -1,5 +1,7 @@
+import type { SendOutcome } from './sender'
+
 type Payload = Record<string, unknown>
-type SendFn = (payload: Payload) => Promise<boolean>
+type SendFn = (payload: Payload) => Promise<SendOutcome | boolean>
 
 const MAX_QUEUE = 10_000
 const RETRY_DELAYS_S = [1, 2, 4, 8, 16, 30, 60]
@@ -30,14 +32,16 @@ export class LogQueue {
     let retryIndex = 0
 
     while (this.items.length > 0) {
-      let success = false
+      let done = false
       try {
-        success = await this.sendFn(this.items[0])
+        const outcome = await this.sendFn(this.items[0])
+        // 'sent' and 'drop' both finish this record; true is accepted as 'sent'.
+        done = outcome === true || outcome === 'sent' || outcome === 'drop'
       } catch {
         // never propagate
       }
 
-      if (success) {
+      if (done) {
         this.items.shift()
         retryIndex = 0
       } else {

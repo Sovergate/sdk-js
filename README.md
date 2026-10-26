@@ -103,6 +103,8 @@ mind when you build prompts. The code is in [`src/scrubber.ts`](src/scrubber.ts)
 - 2 second timeout on every HTTP call to Sovergate
 - If Sovergate is unreachable, records are queued in memory (up to 10,000) and
   retried with exponential backoff
+- A record Sovergate permanently rejects (for example after a key is revoked) is
+  dropped with a `console.warn`, so it never blocks the records behind it
 
 ## Current limitations
 

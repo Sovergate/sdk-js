@@ -17,7 +17,8 @@ const RULES: Array<[string, RegExp, string]> = [
   ['email',     /\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b/g,                              'EMAIL_REDACTED'],
   ['ip',        /\b(?:\d{1,3}\.){3}\d{1,3}\b/g,                                                        'IP_REDACTED'],
   ['iban',      /\b[A-Z]{2}\d{2}[A-Z0-9]{4,30}\b/g,                                                    'IBAN_REDACTED'],
-  ['phone',     /\b(?:\+?\d[\d\s\-(). ]{5,14}\d)\b/g,                                                  'PHONE_REDACTED'],
+  // (?<![\w+]) instead of \b so a leading "+" is part of the match, not left behind
+  ['phone',     /(?<![\w+])\+?\d[\d\s\-(). ]{5,14}\d\b/g,                                            'PHONE_REDACTED'],
   ['dob',       /\b(?:\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}|\d{4}[\/\-.]\d{1,2}[\/\-.]\d{1,2})\b/g,   'DOB_REDACTED'],
   ['id_number', /\b[A-Z]{1,3}\d{6,9}\b/g,                                                              'ID_REDACTED'],
   ['name',      /\b(?:Mr|Mrs|Ms|Dr|Prof)\.?\s+[A-Z][a-z]+(?: [A-Z][a-z]+)*\b/g,                       'NAME_REDACTED'],

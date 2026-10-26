@@ -1,0 +1,27 @@
+name: Publish to npm
+
+# Runs when a GitHub Release is published. Uses npm Trusted Publishing (OIDC),
+# so no npm token is stored in this repository. Pre-releases go to the "alpha"
+# dist-tag, full releases to "latest".
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: npm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - run: npm ci
+      - run: npm test
+      # prepublishOnly runs typecheck and build
+      - run: npm publish --tag ${{ github.event.release.prerelease && 'alpha' || 'latest' }}
