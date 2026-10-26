@@ -39,5 +39,16 @@ jobs:
             *-*) echo "tag=$(echo "$VERSION" | sed -E 's/^[^-]+-([a-z]+).*/\1/')" >> "$GITHUB_OUTPUT" ;;
             *)   echo "tag=latest" >> "$GITHUB_OUTPUT" ;;
           esac
+      # Skip when this version was already published by hand (e.g. while npm's
+      # OIDC exchange rejects this repo: https://github.com/npm/cli/issues/9969).
+      - name: Check whether this version is already on npm
+        id: published
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "sovergate@$VERSION" version >/dev/null 2>&1; then
+            echo "sovergate@$VERSION is already published; skipping."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          fi
       # prepublishOnly runs typecheck and build
-      - run: npm publish --tag ${{ steps.version.outputs.tag }}
+      - if: steps.published.outputs.exists != 'true'
+        run: npm publish --tag ${{ steps.version.outputs.tag }}
