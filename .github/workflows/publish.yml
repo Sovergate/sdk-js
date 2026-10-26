@@ -25,5 +25,19 @@ jobs:
       - run: npm install -g npm@latest
       - run: npm ci
       - run: npm test
+      # The dist-tag comes from the version itself: 0.1.0-alpha.2 → "alpha", 1.0.0 → "latest".
+      # The release tag must match package.json, so a mistyped tag can't publish the wrong version.
+      - name: Check version and choose dist-tag
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if [ "${{ github.event.release.tag_name }}" != "v$VERSION" ]; then
+            echo "Release tag ${{ github.event.release.tag_name }} does not match package.json version v$VERSION"
+            exit 1
+          fi
+          case "$VERSION" in
+            *-*) echo "tag=$(echo "$VERSION" | sed -E 's/^[^-]+-([a-z]+).*/\1/')" >> "$GITHUB_OUTPUT" ;;
+            *)   echo "tag=latest" >> "$GITHUB_OUTPUT" ;;
+          esac
       # prepublishOnly runs typecheck and build
-      - run: npm publish --tag ${{ github.event.release.prerelease && 'alpha' || 'latest' }}
+      - run: npm publish --tag ${{ steps.version.outputs.tag }}
