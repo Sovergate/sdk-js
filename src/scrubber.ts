@@ -24,18 +24,37 @@ const RULES: Array<[string, RegExp, string]> = [
   ['name',      /\b(?:Mr|Mrs|Ms|Dr|Prof)\.?\s+[A-Z][a-z]+(?: [A-Z][a-z]+)*\b/g,                       'NAME_REDACTED'],
 ]
 
-export function scrub(text: string): ScrubResult {
+/**
+ * Numbers placeholders across one whole record (all messages and the response),
+ * so the same value always gets the same placeholder and two different values
+ * never share one.
+ */
+export class ScrubContext {
+  private readonly seen = new Map<string, number>()
+  private readonly next = new Map<string, number>()
+
+  placeholder(base: string, value: string): string {
+    const key = `${base}\u0000${value.replace(/[\s-]/g, '').toLowerCase()}`
+    let n = this.seen.get(key)
+    if (n === undefined) {
+      n = (this.next.get(base) ?? 0) + 1
+      this.next.set(base, n)
+      this.seen.set(key, n)
+    }
+    return `[${base}_${n}]`
+  }
+}
+
+export function scrub(text: string, context: ScrubContext = new ScrubContext()): ScrubResult {
   if (!text) return { text, detections: [] }
 
   const detections: Detection[] = []
-  const counters: Record<string, number> = {}
 
   let result = text
   for (const [category, pattern, basePlaceholder] of RULES) {
     pattern.lastIndex = 0
-    result = result.replace(pattern, () => {
-      counters[category] = (counters[category] ?? 0) + 1
-      const placeholder = `[${basePlaceholder}_${counters[category]}]`
+    result = result.replace(pattern, match => {
+      const placeholder = context.placeholder(basePlaceholder, match)
       detections.push({ category, placeholder })
       return placeholder
     })
@@ -44,20 +63,23 @@ export function scrub(text: string): ScrubResult {
   return { text: result, detections }
 }
 
-export function scrubMessages(messages: OpenAIMessage[]): [OpenAIMessage[], Detection[]] {
+export function scrubMessages(
+  messages: OpenAIMessage[],
+  context: ScrubContext = new ScrubContext(),
+): [OpenAIMessage[], Detection[]] {
   const allDetections: Detection[] = []
   const scrubbed: OpenAIMessage[] = []
 
   for (const msg of messages) {
     const content = msg.content
     if (typeof content === 'string') {
-      const result = scrub(content)
+      const result = scrub(content, context)
       scrubbed.push({ ...msg, content: result.text })
       allDetections.push(...result.detections)
     } else if (Array.isArray(content)) {
       const newBlocks = content.map(block => {
         if (block.type === 'text' && typeof block.text === 'string') {
-          const result = scrub(block.text)
+          const result = scrub(block.text, context)
           allDetections.push(...result.detections)
           return { ...block, text: result.text }
         }

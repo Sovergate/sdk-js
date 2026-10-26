@@ -66,6 +66,11 @@ describe('OpenAI (real SDK)', () => {
     const payload = enqueue.mock.calls[0][0]
     expect(JSON.stringify(payload)).not.toContain('@example.com')
     expect(payload).toMatchObject({ model: 'gpt-4o', prompt_tokens: 12, completion_tokens: 5 })
+    // john@ in the prompt and jane@ in the response: both detected, distinct placeholders
+    expect(payload.pii_detections.map((d: { placeholder: string }) => d.placeholder)).toEqual([
+      '[EMAIL_REDACTED_1]',
+      '[EMAIL_REDACTED_2]',
+    ])
   })
 
   test('.withResponse() still works and is logged', async () => {

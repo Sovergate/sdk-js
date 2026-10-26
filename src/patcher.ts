@@ -1,4 +1,4 @@
-import { scrub, scrubMessages } from './scrubber'
+import { ScrubContext, scrub, scrubMessages } from './scrubber'
 
 type Enqueue = (payload: Record<string, unknown>) => void
 
@@ -100,10 +100,13 @@ export function patchOpenAI(client: any, enqueue: Enqueue): void {
         try {
           const messages = opts?.messages ?? []
           const model = opts?.model ?? ''
-          const [scrubbedMessages, detections] = scrubMessages(messages)
+          const context = new ScrubContext()
+          const [scrubbedMessages, promptDetections] = scrubMessages(messages, context)
           const choice = response?.choices?.[0]
           const responseText: string = choice?.message?.content ?? ''
-          const scrubbedResponse = responseText ? scrub(responseText).text : ''
+          const scrubbedResult = responseText ? scrub(responseText, context) : null
+          const scrubbedResponse = scrubbedResult?.text ?? ''
+          const detections = [...promptDetections, ...(scrubbedResult?.detections ?? [])]
           const usage = response?.usage
 
           enqueue({
@@ -156,7 +159,8 @@ export function patchAnthropic(client: any, enqueue: Enqueue): void {
             ? [{ role: 'system', content: system }, ...messages]
             : messages
 
-          const [scrubbedMessages, detections] = scrubMessages(allMessages)
+          const context = new ScrubContext()
+          const [scrubbedMessages, promptDetections] = scrubMessages(allMessages, context)
 
           const responseText: string = (response?.content ?? [])
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -165,7 +169,9 @@ export function patchAnthropic(client: any, enqueue: Enqueue): void {
             .map((b: any) => b.text as string)
             .join('')
 
-          const scrubbedResponse = responseText ? scrub(responseText).text : ''
+          const scrubbedResult = responseText ? scrub(responseText, context) : null
+          const scrubbedResponse = scrubbedResult?.text ?? ''
+          const detections = [...promptDetections, ...(scrubbedResult?.detections ?? [])]
           const usage = response?.usage
 
           enqueue({
