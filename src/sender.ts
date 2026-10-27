@@ -14,9 +14,11 @@ export async function send(
   payload: Record<string, unknown>,
   baseUrl = BASE_URL,
 ): Promise<SendOutcome> {
+  let timer: ReturnType<typeof setTimeout> | undefined
   try {
     const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
+    timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
+    timer.unref?.()
 
     const response = await fetch(`${baseUrl}/ingest`, {
       method: 'POST',
@@ -28,7 +30,6 @@ export async function send(
       signal: controller.signal,
     })
 
-    clearTimeout(timer)
     if (response.status < 400) return 'sent'
     if (RETRYABLE_STATUS.has(response.status) || response.status >= 500) return 'retry'
 
@@ -42,5 +43,7 @@ export async function send(
     return 'drop'
   } catch {
     return 'retry'
+  } finally {
+    clearTimeout(timer)
   }
 }

@@ -5,26 +5,39 @@ import { patchOpenAI, patchAnthropic } from './patcher'
 export interface InitOptions {
   apiKey: string
   baseUrl?: string
+  /**
+   * Secret used to turn detected personal data into stable, irreversible tokens.
+   * The same value always maps to the same token, so Sovergate can count unique
+   * people without holding the data. Keep it secret and stable: it never leaves
+   * your infrastructure. Without it, placeholders are numbered per record.
+   */
+  piiKey?: string
   debug?: boolean
 }
 
 const state: {
   apiKey: string | null
   baseUrl: string
+  piiKey: string | undefined
   queue: LogQueue | null
 } = {
   apiKey: null,
   baseUrl: 'https://api.sovergate.com',
+  piiKey: undefined,
   queue: null,
 }
 
-export function init({ apiKey, baseUrl = 'https://api.sovergate.com', debug = false }: InitOptions): void {
+export function init({ apiKey, baseUrl = 'https://api.sovergate.com', piiKey, debug = false }: InitOptions): void {
   try {
     state.apiKey = apiKey
     state.baseUrl = baseUrl.replace(/\/$/, '')
+    state.piiKey = piiKey || undefined
 
     if (debug) {
       console.debug('[sovergate] init baseUrl=%s', state.baseUrl)
+      if (!state.piiKey) {
+        console.debug('[sovergate] no piiKey set: PII placeholders are numbered per record and not correlatable across logs')
+      }
     }
 
     state.queue = new LogQueue(payload => send(apiKey, payload, state.baseUrl))
@@ -47,12 +60,12 @@ export function instrument(client: any): void {
     const enqueue = state.queue.enqueue.bind(state.queue)
 
     if (client?.chat?.completions) {
-      patchOpenAI(client, enqueue)
+      patchOpenAI(client, enqueue, state.piiKey)
       return
     }
 
     if (client?.messages) {
-      patchAnthropic(client, enqueue)
+      patchAnthropic(client, enqueue, state.piiKey)
       return
     }
 
@@ -75,4 +88,5 @@ function warn(message: string, err?: unknown): void {
 
 export function shutdown(): void {
   state.queue = null
+  state.piiKey = undefined
 }
