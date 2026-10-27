@@ -6,8 +6,13 @@ type SendFn = (payload: Payload) => Promise<SendOutcome | boolean>
 const MAX_QUEUE = 10_000
 const RETRY_DELAYS_S = [1, 2, 4, 8, 16, 30, 60]
 
+// unref(): a pending retry must never keep the host process alive. Records still
+// queued when the app exits are lost, as documented.
 function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms))
+  return new Promise(resolve => {
+    const timer = setTimeout(resolve, ms)
+    timer.unref?.()
+  })
 }
 
 export class LogQueue {

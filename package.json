@@ -1,6 +1,6 @@
 {
   "name": "sovergate",
-  "version": "0.1.0-alpha.2",
+  "version": "0.1.0-alpha.3",
   "description": "EU AI Act compliance SDK — automatic, non-invasive audit logging for LLM calls",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
